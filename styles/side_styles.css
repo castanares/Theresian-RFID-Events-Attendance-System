@@ -1,0 +1,170 @@
+ .sidebar {
+    background-color: maroon;
+    height: 100%;
+    width: 6.6%;
+    min-width: 80px;
+    max-width: 120px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    text-align: center;
+    transition: transform 0.3s ease;
+    transform: translateX(0);
+    z-index: 1045 !important;
+    }
+    .sidebar.hide-sidebar {
+    transform: translateX(-100%);
+    }
+    .sidebar img.stc-logo {
+    width: 100%;
+    margin-top: 2pc !important;
+    margin-bottom: 2pc;
+    }
+   
+    .sidebar-toggle-btn {
+    position: fixed;
+    top: 15px;
+    left: 35px;
+    z-index: 1060;
+    background: maroon;
+    color: #fff;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
+    font-size: 22px;
+    cursor: pointer;
+    display: none;
+    }
+  .sidebar .nav-link.active {
+    background-color: #4B1C1C !important;
+    color: #fff !important;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .sidebar .nav-link.active svg {
+    fill: #fff !important;
+    filter: brightness(0.8);
+  }
+.Add{
+    margin-top: -10px;
+    margin-bottom: -5px;
+    
+  }
+  .scan{
+    margin-top: -15px;
+    margin-bottom: -5px;
+    
+  }
+  .archived{
+    margin-top: -15px;
+    margin-bottom: -5px;
+    padding-top: 5px;
+  }
+
+
+   .ongoing{
+    margin-top: -11px;
+    margin-bottom: -5px;
+    
+   
+  }
+
+  .side_home{
+    margin-top: -5px;
+    margin-bottom: 1px;
+   
+  }
+.students{
+  margin-top: -15px!important;
+  margin-bottom: -5px!important;
+}
+
+/* Consistent font sizing for all sidebar text */
+.sidebar .nav-link p {
+  font-size: 14px !important;
+  transition: font-size 0.2s ease;
+}
+
+/* Ensure consistent font size on hover */
+.sidebar .d-flex:hover .nav-link p {
+  font-size: 14px !important;
+}
+    .active-sidebar{
+      background-color: rgb(92, 4, 4);
+      border-radius: 5px;
+      border-left: 2px solid white !important;
+
+    }
+    .margin-burger{
+      margin-top: -12px;
+    }
+    /* Archive section positioning */
+    .archive-section {
+      margin-top: 20rem !important;
+    }
+    
+    /* Responsive font sizes for different screen sizes */
+    @media screen and (max-width: 1440px) {
+      /* .Add{
+        margin-top: -1.7rem;
+      } */
+      .sidebar .nav-link p {
+        font-size: 12px !important;
+      }
+      .archive-section {
+        margin-top: 15rem !important;
+      }
+    }
+    
+    @media screen and (max-width: 1200px) {
+      .sidebar .nav-link p {
+        font-size: 12px !important;
+      }
+    }
+    
+    @media screen and (max-width: 992px) {
+      .sidebar .nav-link p {
+        font-size: 11px !important;
+      }
+    }
+    
+    @media screen and (max-width: 768px) {
+      .sidebar .nav-link p {
+        font-size: 10px !important;
+      }
+    }
+    
+    @media screen and (max-width: 576px) {
+      .sidebar .nav-link p {
+        font-size: 9px !important;
+      }
+    }
+
+    /* Archive section responsive positioning */
+    @media screen and (max-height: 900px) and (min-width: 769px) {
+      .archive-section {
+        margin-top: 15rem !important;
+      }
+    }
+    
+    @media screen and (max-height: 768px) and (min-width: 769px) {
+      .archive-section {
+        margin-top: 4rem !important;
+      }
+    }
+    
+    @media screen and (max-height: 600px) and (min-width: 769px) {
+      .archive-section {
+        margin-top: 2rem !important;
+      }
+      .sidebar nav {
+        overflow-y: auto;
+        height: calc(100vh - 100px);
+      }
+    }
+    
+    @media screen and (max-width: 768px) {
+      .archive-section {
+        margin-top: 2rem !important;
+      }
+    }

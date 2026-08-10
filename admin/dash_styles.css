@@ -1,0 +1,109 @@
+body{
+    background-color: #f7f4f4 !important;
+    margin: 0%;
+}
+
+
+.account_name{
+    margin-left: 10px;
+    margin-right: -7%;
+    margin-top:3px;
+    color: maroon;
+}
+ .nav-icon{
+    margin-left: -2rem;
+  }
+
+
+.container {
+    margin-top: -1.5pc;
+    margin-bottom: -1.5pc;
+    box-shadow: outset 0 0 5px #161616; 
+ 
+}
+
+.dash{
+    color: maroon;
+    margin-top: 10px;
+    font-size: 2pc;
+}
+
+.year{
+    background-color: white;
+    margin-right: 10px;
+    box-shadow: outset 0 0 20px #161616; 
+
+}
+.sem{
+    background-color: white;
+    margin-right: 5pc;
+    border-radius: 8%;
+    padding-bottom: 10px;
+
+}
+.event-table{
+    margin-left: 10pc;
+    margin-right: 5pc;
+    margin-top: 2pc;
+    
+}
+.btn-maroon{
+    background-color: maroon !important;
+    color: white !important;
+}
+
+
+ 
+  .start-end{
+    margin-right: 7pc;
+    margin-bottom: -15px;
+  }
+  .start{
+    padding-right: 1pc !important;
+    margin-right: 4pc !important;
+    
+  }
+  .year-sem{
+    margin-right: 5pc;
+  }
+  .text-year-sem{
+    margin-right: 11.2pc;
+  }
+  .h6-year{
+    margin-right: 2.6pc;
+  }
+  .add{
+    margin-left: 12pc;
+  }
+  .search_bar{
+    margin-right: 2pc;
+    margin-bottom: 2pc;
+  }
+  .event-foot-time{
+    margin-top: 15.9pc !important;
+  }
+  @media (min-width: 1440px) {
+
+  .nav-icon{
+    margin-left: 5rem;
+  }
+  .dash{
+  margin-left: 4pc;
+  
+  }
+ 
+  .account_name{
+    margin-right: 0.2rem;
+  }
+}
+@media (min-width: 1920px) {
+.dash{
+  margin-left: -10pc;
+  
+}
+ 
+  .account_name{
+    margin-right: -14rem;
+  }
+  
+}

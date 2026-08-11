@@ -5,10 +5,18 @@
  
 ?>
 
+<!-- Mobile hamburger toggle button (visible only on < 992px) -->
+<button class="sidebar-toggle-btn d-lg-none" id="sidebarToggleBtn" aria-label="Toggle sidebar" aria-expanded="false" aria-controls="mainSidebar">
+  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+    <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/>
+  </svg>
+</button>
 
+<!-- Backdrop overlay for mobile sidebar -->
+<div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
-<section class="d-lg-block"> 
-  <div class="sidebar d-lg-block" id="mainSidebar">
+<section> 
+  <div class="sidebar" id="mainSidebar">
         <nav class="text-center">
           <img src="stctandag-logo.png" alt="stc_logo" class="mx-auto d-block stc-logo" srcset="">
           <div class="d-flex flex-column align-items-center <?php echo $current === 'index.php' ? 'active-sidebar' : '' ?>">
@@ -61,7 +69,7 @@
           
           
 
-          <div class="d-flex flex-column align-items-center pt-2 archive-section  <?php echo $current === 'archived.php' ? 'active-sidebar' : '' ?> " style="margin-top: 22rem !important;">
+          <div class="d-flex flex-column align-items-center pt-2 archive-section  <?php echo $current === 'archived.php' ? 'active-sidebar' : '' ?> ">
                 <a href="archived.php" data-key="archived" class="mb-2 link-body-emphasis text-decoration-none">
               <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="white" class="bi bi-trash3-fill" viewBox="0 0 16 16"  >
                 <path d="M11 1.5v1h3.5a.5.5 0 0 1 0 1h-.538l-.853 10.66A2 2 0 0 1 11.115 16h-6.23a2 2 0 0 1-1.994-1.84L2.038 3.5H1.5a.5.5 0 0 1 0-1H5v-1A1.5 1.5 0 0 1 6.5 0h3A1.5 1.5 0 0 1 11 1.5m-5 0v1h4v-1a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5M4.5 5.029l.5 8.5a.5.5 0 1 0 .998-.06l-.5-8.5a.5.5 0 1 0-.998.06m6.53-.528a.5.5 0 0 0-.528.47l-.5 8.5a.5.5 0 0 0 .998.058l.5-8.5a.5.5 0 0 0-.47-.528M8 4.5a.5.5 0 0 0-.5.5v8.5a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5"/>
@@ -76,21 +84,62 @@
       </div>
 </section>
 
-<style>
-/* hover darken effect for sidebar items */
-#mainSidebar nav .d-flex:hover { 
-  background-color: rgba(0,0,0,0.15) !important; 
-  border-radius: 6px; 
-  border-left: 3px solid white;
-  transition: background-color 0.2s ease, border-left 0.2s ease;
-}
+<script>
+(function() {
+  const sidebar  = document.getElementById('mainSidebar');
+  const overlay  = document.getElementById('sidebarOverlay');
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  if (!sidebar || !toggleBtn) return;
 
-/* clicked darken state for immediate feedback before navigation */
-.clicked-sidebar{ 
-  background-color: rgba(0,0,0,0.18) !important; 
-  border-radius: 6px; 
-}
-</style>
+  let isOpen = false;
+
+  function openSidebar() {
+    isOpen = true;
+    sidebar.classList.add('mobile-open');
+    overlay.classList.add('active');
+    toggleBtn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden'; // prevent background scroll
+  }
+
+  function closeSidebar() {
+    isOpen = false;
+    sidebar.classList.remove('mobile-open');
+    overlay.classList.remove('active');
+    toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+  }
+
+  toggleBtn.addEventListener('click', function() {
+    if (isOpen) closeSidebar(); else openSidebar();
+  });
+
+  // Close when clicking overlay backdrop
+  overlay.addEventListener('click', closeSidebar);
+
+  // Close when pressing Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && isOpen) closeSidebar();
+  });
+
+  // Close sidebar on link click (navigate away)
+  const navAnchors = sidebar.querySelectorAll('a[data-key]');
+  navAnchors.forEach(function(a) {
+    a.addEventListener('click', function() {
+      if (window.innerWidth < 992) closeSidebar();
+    });
+  });
+
+  // On resize to desktop: remove mobile state
+  window.addEventListener('resize', function() {
+    if (window.innerWidth >= 992) {
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('active');
+      document.body.style.overflow = '';
+      isOpen = false;
+    }
+  });
+})();
+</script>
 
 <script>
 // Persistent active sidebar using localStorage. Local selection overrides server PHP active if present.
@@ -98,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function(){
   const navAnchors = document.querySelectorAll('#mainSidebar nav a[data-key]');
   const containerItems = Array.from(document.querySelectorAll('#mainSidebar nav .d-flex'));
 
-  function clearActive(){ containerItems.forEach(it=> it.classList.remove('active-sidebar')); }
+  function clearActive(){ containerItems.forEach(it=>it.classList.remove('active-sidebar')); }
 
   // Apply stored active if exists (overrides PHP active)
   const stored = localStorage.getItem('activeSidebar');
@@ -120,7 +169,7 @@ document.addEventListener('DOMContentLoaded', function(){
       const parent = a.closest('.d-flex');
       if(!parent) return;
       // remove clicked from siblings
-      containerItems.forEach(s=> s.classList.remove('clicked-sidebar'));
+      containerItems.forEach(s=>s.classList.remove('clicked-sidebar'));
       parent.classList.add('clicked-sidebar');
       // also apply active immediately so user sees persistent state
       clearActive(); parent.classList.add('active-sidebar');

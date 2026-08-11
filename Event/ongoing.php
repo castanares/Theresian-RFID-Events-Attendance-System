@@ -112,6 +112,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
   .att-rows-label { font-size: 0.875rem; color: #555; }
   /* Push body content above the fixed-bottom footer (3× h5 ≈ 110px) */
   body { padding-bottom: 120px !important; }
+  /* Course filter bar */
+  .course-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .course-filter-bar .form-select {
+    min-width: 180px;
+    width: auto;
+  }
+  .att-count-badge {
+    font-size: 0.85rem;
+    color: #555;
+    margin-left: auto;
+  }
 </style>
 <body>
 <?php include 'sidebar.php'; ?>
@@ -207,6 +224,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
         <button id="exportBtn" class="btn btn-maroon" data-bs-toggle="modal" data-bs-target="#exportModal">Export Attendance</button>
       </div>
     </div>
+    <!-- Course Filter Bar -->
+    <div class="course-filter-bar" id="courseFilterBar">
+      <label class="fw-semibold text-nowrap mb-0"><i class="bi bi-funnel me-1"></i>Filter by Course:</label>
+      <select id="courseFilterSelect" class="form-select form-select-sm">
+        <option value="">All Courses</option>
+      </select>
+      <button id="clearCourseFilter" class="btn btn-sm btn-outline-danger text-nowrap">
+        <i class="bi bi-x-circle me-1"></i>Clear
+      </button>
+      <span class="att-count-badge" id="attCountBadge"></span>
+    </div>
     <table class="table border border-dark table-bordered">
       <thead class="table-maroon border border-dark">
         <tr>
@@ -216,6 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit'])) {
            <th scope="col" rowspan="2">Course</th>
           <th scope="col" class="text-center">TIME IN</th>
           <th scope="col" class="text-center">TIME OUT</th>
+          <th scope="col" class="text-center">DURATION</th>
         </tr>
       </thead>
       <tbody id="attendanceTableBody">
@@ -477,37 +506,94 @@ async function loadFormData() {
   }
 }
 
-// --- Attendance pagination state ---
-let _attAllRows = [];
+// --- Attendance pagination & filter state ---
+let _attAllRows = [];        // all TR elements loaded from API
+let _attFilteredRows = [];   // TR elements after course filter applied
 let _attCurrentPage = 1;
 
 function _attGetRPP() {
-  return parseInt(document.getElementById('attRowsPerPage')?.value || '10', 10);
+  const val = document.getElementById('attRowsPerPage')?.value || '10';
+  return val === 'all' ? Infinity : (parseInt(val, 10) || 10);
+}
+
+// Rebuild course dropdown options from current _attAllRows
+function rebuildCourseFilter() {
+  const sel = document.getElementById('courseFilterSelect');
+  if (!sel) return;
+  const current = sel.value;
+  const courses = new Set();
+  _attAllRows.forEach(tr => {
+    const c = (tr.getAttribute('data-course') || '').trim();
+    if (c) courses.add(c);
+  });
+  const sorted = Array.from(courses).sort();
+  sel.innerHTML = '<option value="">All Courses</option>';
+  sorted.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = c;
+    sel.appendChild(opt);
+  });
+  // Restore previous selection if still valid
+  if (sorted.includes(current)) sel.value = current;
+  else sel.value = '';
+}
+
+// Apply the course filter and re-render
+function applyCourseFilter() {
+  const sel = document.getElementById('courseFilterSelect');
+  const chosen = sel ? sel.value.trim() : '';
+  if (!chosen) {
+    _attFilteredRows = [..._attAllRows];
+  } else {
+    _attFilteredRows = _attAllRows.filter(tr =>
+      (tr.getAttribute('data-course') || '').trim().toLowerCase() === chosen.toLowerCase()
+    );
+  }
+  _attCurrentPage = 1;
+  renderAttendancePage();
 }
 
 function renderAttendancePage() {
   const rpp = _attGetRPP();
-  const total = _attAllRows.length;
-  const totalPages = Math.max(1, Math.ceil(total / rpp));
+  const total = _attFilteredRows.length;
+  const totalPages = rpp === Infinity ? 1 : Math.max(1, Math.ceil(total / rpp));
   if (_attCurrentPage > totalPages) _attCurrentPage = totalPages;
-  const start = (_attCurrentPage - 1) * rpp;
-  const end = start + rpp;
+  if (_attCurrentPage < 1) _attCurrentPage = 1;
+  const start = rpp === Infinity ? 0 : (_attCurrentPage - 1) * rpp;
+  const end = rpp === Infinity ? total : start + rpp;
 
-  _attAllRows.forEach((tr, i) => {
-    tr.style.display = (i >= start && i < end) ? '' : 'none';
-    // update # numbering
-    const th = tr.querySelector('th');
-    if (th) th.textContent = i + 1;
+  // Hide ALL rows first
+  _attAllRows.forEach(tr => { tr.style.display = 'none'; });
+
+  // Show only the filtered slice and update # numbering
+  _attFilteredRows.forEach((tr, i) => {
+    if (i >= start && i < end) {
+      tr.style.display = '';
+      const th = tr.querySelector('th');
+      if (th) th.textContent = i + 1;
+    }
   });
+
+  // Count badge
+  const badge = document.getElementById('attCountBadge');
+  if (badge) {
+    const sel = document.getElementById('courseFilterSelect');
+    const chosen = sel ? sel.value : '';
+    badge.textContent = chosen
+      ? `${total} student${total !== 1 ? 's' : ''} in ${chosen}`
+      : `${total} student${total !== 1 ? 's' : ''} total`;
+  }
 
   // Info text
   const info = document.getElementById('attPaginationInfo');
-  if (info) info.textContent = total === 0 ? '' : `Showing ${start + 1}–${Math.min(end, total)} of ${total}`;
+  if (info) info.textContent = total === 0 ? 'No records' : `Showing ${start + 1}–${Math.min(end, total)} of ${total}`;
 
   // Build page buttons
   const ul = document.getElementById('attendancePagination');
   if (!ul) return;
   ul.innerHTML = '';
+  if (total === 0 || totalPages <= 1) return;
   const maxBtns = 5;
   let sp = Math.max(1, _attCurrentPage - Math.floor(maxBtns / 2));
   let ep = Math.min(totalPages, sp + maxBtns - 1);
@@ -521,7 +607,6 @@ function renderAttendancePage() {
       ev.preventDefault();
       _attCurrentPage = page;
       renderAttendancePage();
-      // Return focus to scan input so the RFID scanner stays active
       const si = document.getElementById('scanInput');
       if (si) si.focus();
     });
@@ -544,6 +629,9 @@ async function loadAttendance() {
     if (json.success && Array.isArray(json.data)) {
       json.data.forEach((att) => {
         const tr = document.createElement('tr');
+        const course = att.Course || '';
+        // Store course on the row for filtering
+        tr.setAttribute('data-course', course.trim());
         let timeInClass = '';
         if (att.Time_in) {
           const timeInDate = new Date(att.Time_in.replace(' ', 'T'));
@@ -564,32 +652,67 @@ async function loadAttendance() {
             timeOutClass = 'text-danger fw-bold';
           }
         }
+        // Compute duration (time_out - time_in)
+        let durationStr = '\u2014';
+        if (att.Time_in && att.Time_out) {
+          try {
+            const tIn  = new Date(att.Time_in.replace(' ', 'T'));
+            const tOut = new Date(att.Time_out.replace(' ', 'T'));
+            const diffMs = tOut - tIn;
+            if (diffMs > 0) {
+              const diffMins = Math.round(diffMs / 60000);
+              const hrs = Math.floor(diffMins / 60);
+              const mins = diffMins % 60;
+              durationStr = hrs > 0 ? `${hrs} hr ${mins} min` : `${mins} min`;
+            } else {
+              durationStr = '\u2014';
+            }
+          } catch (_) { durationStr = '\u2014'; }
+        }
+        tr.setAttribute('data-duration', durationStr);
         tr.innerHTML = `
           <th scope="row"></th>
           <td>${att.ID_Number || att.student_id}</td>
           <td>${att.student_name || 'Unknown'}</td>
-          <td>${att.Course || ''}</td>
+          <td>${course}</td>
           <td class="text-center ${timeInClass}">${att.Time_in ? new Date(att.Time_in.replace(' ', 'T')).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true}) : ''}</td>
           <td class="text-center ${timeOutClass}">${att.Time_out ? new Date(att.Time_out.replace(' ', 'T')).toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit', hour12: true}) : ''}</td>
+          <td class="text-center text-secondary">${durationStr}</td>
         `;
         tbody.appendChild(tr);
         _attAllRows.push(tr);
       });
     }
-    _attCurrentPage = 1;
-    renderAttendancePage();
+    // Rebuild course dropdown and apply (preserves current selection if still valid)
+    rebuildCourseFilter();
+    applyCourseFilter();
   } catch (err) {
     console.error('Failed to load attendance', err);
   }
 }
 
-// Wire rows-per-page selector
+// Wire rows-per-page selector and course filter
 document.addEventListener('DOMContentLoaded', () => {
   const rppSel = document.getElementById('attRowsPerPage');
   if (rppSel) rppSel.addEventListener('change', () => {
     _attCurrentPage = 1;
     renderAttendancePage();
-    // Return focus to scan input after changing rows-per-page
+    const si = document.getElementById('scanInput');
+    if (si) setTimeout(() => si.focus(), 50);
+  });
+
+  const courseSel = document.getElementById('courseFilterSelect');
+  if (courseSel) courseSel.addEventListener('change', () => {
+    applyCourseFilter();
+    const si = document.getElementById('scanInput');
+    if (si) setTimeout(() => si.focus(), 50);
+  });
+
+  const clearCourseBtn = document.getElementById('clearCourseFilter');
+  if (clearCourseBtn) clearCourseBtn.addEventListener('click', () => {
+    const sel = document.getElementById('courseFilterSelect');
+    if (sel) sel.value = '';
+    applyCourseFilter();
     const si = document.getElementById('scanInput');
     if (si) setTimeout(() => si.focus(), 50);
   });
@@ -897,11 +1020,19 @@ function download(content, filename, mime) {
   URL.revokeObjectURL(url);
 }
 
+// Helper: get the currently visible (filtered) attendance rows for export
+function getExportRows() {
+  // Use the filtered set; only include rows that are not hidden
+  return _attFilteredRows.filter(tr => tr.style.display !== 'none' || true);
+  // Actually return all filtered rows (pagination just hides, exports should include all filtered)
+}
+
 function exportPDF() {
   const eventTitle = document.getElementById('eventTitle').textContent;
   const startTime = document.querySelector('.footer .fixed h5:first-child').textContent;
   const endTime = document.querySelector('.footer .fixed h5:last-child').textContent;
-  const rows = Array.from(document.querySelectorAll('#attendanceTableBody tr'));
+  // Export all rows matching the current course filter (not just the visible page)
+  const rows = _attFilteredRows.length > 0 ? _attFilteredRows : Array.from(document.querySelectorAll('#attendanceTableBody tr'));
 
   // Helper function to convert time string to minutes
   function timeToMinutes(timeStr) {
@@ -931,6 +1062,7 @@ function exportPDF() {
     const course = (cells[3]?.textContent || '').trim();
     const timeIn = (cells[4]?.textContent || '').trim();
     const timeOut = (cells[5]?.textContent || '').trim();
+    const duration = (cells[6]?.textContent || '').trim() || (r.getAttribute('data-duration') || '\u2014');
 
     // Determine styles for TIME IN
     let timeInClass = '';
@@ -965,6 +1097,7 @@ function exportPDF() {
       <td>${course}</td>
       <td class="c-time ${timeInClass}">${timeIn}</td>
       <td class="c-time ${timeOutClass}">${timeOut}</td>
+      <td class="c-dur">${duration}</td>
     </tr>`;
   });
 
@@ -992,10 +1125,11 @@ function exportPDF() {
       thead { display: table-header-group; }
       tr, td, th { page-break-inside: avoid; break-inside: avoid; }
       .c-num { width: 6%; text-align:center; }
-      .c-id { width: 18%; }
-      .c-name { width: 34%; }
-      .c-course { width: 20%; }
-      .c-time { width: 11%; text-align:center; }
+      .c-id { width: 15%; }
+      .c-name { width: 30%; }
+      .c-course { width: 17%; }
+      .c-time { width: 10%; text-align:center; }
+      .c-dur  { width: 12%; text-align:center; }
       .time-on-time { color: #198754; font-weight: bold; }
       .time-late { color: #dc3545; font-weight: bold; }
     </style>
@@ -1015,7 +1149,7 @@ function exportPDF() {
           <div class="meta">Event Date: ${eventDate ? new Date(eventDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'} | ${startTime} | ${endTime}</div>
         <table>
         <colgroup>
-          <col style="width:6%"><col style="width:18%"><col style="width:34%"><col style="width:20%"><col style="width:11%"><col style="width:11%">
+          <col style="width:6%"><col style="width:15%"><col style="width:30%"><col style="width:17%"><col style="width:10%"><col style="width:10%"><col style="width:12%">
         </colgroup>
         <thead>
           <tr>
@@ -1025,6 +1159,7 @@ function exportPDF() {
             <th class="c-course">COURSE</th>
             <th class="c-time">TIME IN</th>
             <th class="c-time">TIME OUT</th>
+            <th class="c-dur">DURATION</th>
           </tr>
         </thead>
         <tbody>
@@ -1070,7 +1205,8 @@ async function exportDOCX() {
     const eventTitle = document.getElementById('eventTitle').textContent;
     const startTime = document.querySelector('.footer .fixed h5:first-child').textContent;
     const endTime = document.querySelector('.footer .fixed h5:last-child').textContent;
-    const rows = Array.from(document.querySelectorAll('#attendanceTableBody tr'));
+    // Export all rows matching the current course filter (not just the visible page)
+    const rows = _attFilteredRows.length > 0 ? _attFilteredRows : Array.from(document.querySelectorAll('#attendanceTableBody tr'));
 
     // Helper: time parsing same as PDF
     const timeToMinutes = (timeStr) => {
@@ -1150,11 +1286,12 @@ async function exportDOCX() {
     // Compute DXA widths based on ~10.77k twips usable width
     const contentWidth = 10772; // approx A4 content width with 10mm margins
     const w = {
-      num: Math.round(contentWidth * 0.06),
-      id: Math.round(contentWidth * 0.18),
-      name: Math.round(contentWidth * 0.34),
-      course: Math.round(contentWidth * 0.20),
-      time: Math.round(contentWidth * 0.11),
+      num:    Math.round(contentWidth * 0.06),
+      id:     Math.round(contentWidth * 0.15),
+      name:   Math.round(contentWidth * 0.30),
+      course: Math.round(contentWidth * 0.17),
+      time:   Math.round(contentWidth * 0.10),
+      dur:    Math.round(contentWidth * 0.12),
     };
 
     const headerRow = new TableRow({ tableHeader: true, children: [
@@ -1164,6 +1301,7 @@ async function exportDOCX() {
       makeHeaderCell('COURSE', w.course),
       makeHeaderCell('TIME IN', w.time),
       makeHeaderCell('TIME OUT', w.time),
+      makeHeaderCell('DURATION', w.dur),
     ]});
 
     // Build body rows with on-time/late coloring
@@ -1173,8 +1311,9 @@ async function exportDOCX() {
       const id = (cells[1]?.textContent || '').trim();
       const name = (cells[2]?.textContent || '').trim();
       const course = (cells[3]?.textContent || '').trim();
-      const timeIn = (cells[4]?.textContent || '').trim();
+      const timeIn  = (cells[4]?.textContent || '').trim();
       const timeOut = (cells[5]?.textContent || '').trim();
+      const duration = (cells[6]?.textContent || '').trim() || (row.getAttribute('data-duration') || '\u2014');
 
       // Determine color for times using same logic as PDF
       let timeInColor = '000000';
@@ -1209,6 +1348,7 @@ async function exportDOCX() {
         makeCell(course, w.course),
         makeCell(timeIn, w.time, true, timeInColor),
         makeCell(timeOut, w.time, true, timeOutColor),
+        makeCell(duration, w.dur, true),
       ]});
     });
 
@@ -1259,7 +1399,8 @@ function exportXLSX() {
   const eventTitle = document.getElementById('eventTitle').textContent;
   const startTime = document.querySelector('.footer .fixed h5:first-child').textContent;
   const endTime = document.querySelector('.footer .fixed h5:last-child').textContent;
-  const rows = Array.from(document.querySelectorAll('#attendanceTableBody tr'));
+  // Export all rows matching the current course filter (not just the visible page)
+  const rows = _attFilteredRows.length > 0 ? _attFilteredRows : Array.from(document.querySelectorAll('#attendanceTableBody tr'));
 
   // Helper function: parse 12h/24h time to minutes since midnight
   function timeToMinutes(timeStr) {
@@ -1283,7 +1424,7 @@ function exportXLSX() {
     ['Start Time', startTime],
     ['End Time', endTime],
     [], // empty row
-    ['#', 'ID NUMBER', 'STUDENT NAME', 'COURSE', 'TIME IN', 'TIME OUT']
+    ['#', 'ID NUMBER', 'STUDENT NAME', 'COURSE', 'TIME IN', 'TIME OUT', 'DURATION']
   ];
 
   // Helper to convert a time string to a Date object (date part arbitrary)
@@ -1304,8 +1445,9 @@ function exportXLSX() {
     const id = (cells[1]?.textContent || '').trim();
     const name = (cells[2]?.textContent || '').trim();
     const course = (cells[3]?.textContent || '').trim();
-    const timeIn = (cells[4]?.textContent || '').trim();
+    const timeIn  = (cells[4]?.textContent || '').trim();
     const timeOut = (cells[5]?.textContent || '').trim();
+    const duration = (cells[6]?.textContent || '').trim() || (row.getAttribute('data-duration') || '\u2014');
 
     // Determine on-time/late for TIME IN and TIME OUT
     let inFmt = null;  // 'green' | 'red' | null
@@ -1328,9 +1470,9 @@ function exportXLSX() {
       }
     } catch (_) { /* leave status blank on parse issues */ }
 
-    const timeInDate = parseTimeToDate(timeIn);
+    const timeInDate  = parseTimeToDate(timeIn);
     const timeOutDate = parseTimeToDate(timeOut);
-    data.push([num, id, name, course, timeInDate || '', timeOutDate || '']);
+    data.push([num, id, name, course, timeInDate || '', timeOutDate || '', duration]);
     rowFlags.push({ inFmt, outFmt });
   });
 
@@ -1358,6 +1500,7 @@ function exportXLSX() {
     { wch: 12 },  // COURSE
     { wch: 10 },  // TIME IN
     { wch: 10 },  // TIME OUT
+    { wch: 14 },  // DURATION
   ];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Attendance');

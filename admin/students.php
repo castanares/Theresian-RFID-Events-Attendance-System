@@ -53,6 +53,25 @@ require_login('../');
       #studentsTable tbody tr:hover { background: rgba(128,0,0,0.04); }
       .table td, .table th { vertical-align: middle; }
 
+      /* Pagination */
+      .pagination .page-item.active .page-link {
+        background-color: var(--maroon);
+        border-color: var(--maroon);
+        color: #fff;
+      }
+      .pagination .page-link {
+        color: var(--maroon);
+      }
+      .pagination .page-link:hover {
+        color: var(--maroon-dark);
+        background-color: #ffe5e5;
+        border-color: #d9b0b0;
+      }
+      .pagination .page-item.disabled .page-link {
+        color: #aaa;
+      }
+      .rows-per-page-label { font-size: 0.875rem; color: #555; }
+
       /* Filter section styling */
       .filter-section {
         margin-left: 9rem;
@@ -170,7 +189,7 @@ require_login('../');
           <p class="text-muted mb-0">Manage student records, RFID assignments, and department information</p>
         </div>
         <div class="col-12 col-md-4 text-md-end">
-          <small class="text-muted">Total Students: <span id="totalCount" class="fw-bold text-maroon">156</span></small>
+          <small class="text-muted">Total Students: <span id="totalCount" class="fw-bold text-maroon">0</span></small>
         </div>
       </div>
 
@@ -193,10 +212,29 @@ require_login('../');
         </tbody>
         </table>
       </div>
-          <!-- Toast container for notifications -->
-          <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index:1080">
-            <div id="toastContainer"></div>
-          </div>
+
+      <!-- Pagination controls -->
+      <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-2">
+          <span class="rows-per-page-label">Rows per page:</span>
+          <select id="rowsPerPage" class="form-select form-select-sm" style="width:auto;">
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="all">All</option>
+          </select>
+          <span id="paginationInfo" class="rows-per-page-label ms-2"></span>
+        </div>
+        <nav aria-label="Students table pagination">
+          <ul id="paginationControls" class="pagination pagination-sm mb-0"></ul>
+        </nav>
+      </div>
+
+      <!-- Toast container for notifications -->
+      <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index:1080">
+        <div id="toastContainer"></div>
+      </div>
 
     </div>
   </div>
@@ -349,89 +387,187 @@ function showToast(message, type = 'info', timeout = 4000){
   el.addEventListener('hidden.bs.toast', ()=> el.remove());
 }
 
-  // Enhanced filtering and search functionality
-  const searchInput = document.getElementById('searchInput');
-  const filterDepartment = document.getElementById('filterDepartment');
-  const filterStatus = document.getElementById('filterStatus') || null;
-  const clearFilters = document.getElementById('clearFilters');
-  const studentsTable = document.getElementById('studentsTable');
-  const totalCount = document.getElementById('totalCount');
-  
-  let allRows = Array.from(studentsTable.querySelectorAll('tbody tr'));
+// Helper escapeHtml for safety
+function escapeHtml(str){
+  if (str === null || str === undefined) return '';
+  return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[m]);
+}
 
-  function applyFilters() {
-    const searchTerm = searchInput.value.toLowerCase();
-    const deptFilter = filterDepartment.value;
-  const statusFilter = filterStatus ? filterStatus.value : '';
-    
-    let visibleCount = 0;
+// Elements
+const searchInput = document.getElementById('searchInput');
+const filterDepartment = document.getElementById('filterDepartment');
+const filterStatus = document.getElementById('filterStatus') || null;
+const clearFilters = document.getElementById('clearFilters');
+const studentsTable = document.getElementById('studentsTable');
+const totalCount = document.getElementById('totalCount');
+const rowsPerPage = document.getElementById('rowsPerPage');
+const paginationInfo = document.getElementById('paginationInfo');
+const paginationControls = document.getElementById('paginationControls');
 
-    allRows.forEach(row => {
-      const text = row.textContent.toLowerCase();
-      const dept = row.getAttribute('data-dept');
-      const status = row.getAttribute('data-status');
-      
-      const matchesSearch = searchTerm === '' || text.includes(searchTerm);
-      const matchesDept = deptFilter === '' || dept === deptFilter;
-      const matchesStatus = statusFilter === '' || status === statusFilter;
-      
-      if (matchesSearch && matchesDept && matchesStatus) {
-        row.style.display = '';
-        visibleCount++;
-        // Update the number in the first cell to match filtered count
-        row.querySelector('td:first-child').textContent = visibleCount;
-      } else {
-        row.style.display = 'none';
+// Pagination & Filtering state
+let allRows = [];
+let filteredRows = [];
+let currentPage = 1;
+
+function getRowsPerPage() {
+  const val = rowsPerPage ? rowsPerPage.value : '10';
+  if (val === 'all') return Infinity;
+  return parseInt(val, 10) || 10;
+}
+
+function renderPage() {
+  const rpp = getRowsPerPage();
+  const total = filteredRows.length;
+  const totalPages = rpp === Infinity ? 1 : Math.max(1, Math.ceil(total / rpp));
+
+  if (currentPage > totalPages) currentPage = totalPages;
+  if (currentPage < 1) currentPage = 1;
+
+  const start = rpp === Infinity ? 0 : (currentPage - 1) * rpp;
+  const end = rpp === Infinity ? total : start + rpp;
+
+  // Hide all rows initially
+  allRows.forEach(tr => { tr.style.display = 'none'; });
+
+  // Show only sliced rows for current page and update index
+  filteredRows.forEach((tr, i) => {
+    if (i >= start && i < end) {
+      tr.style.display = '';
+      if (tr.cells && tr.cells[0]) {
+        tr.cells[0].textContent = i + 1;
       }
-    });
-    
-    totalCount.textContent = visibleCount;
+    } else {
+      tr.style.display = 'none';
+    }
+  });
+
+  // Empty state handling
+  const tbody = document.getElementById('studentsTbody');
+  const existingNoRes = document.getElementById('noResultsRow');
+  if (total === 0) {
+    if (!existingNoRes && tbody) {
+      const tr = document.createElement('tr');
+      tr.id = 'noResultsRow';
+      tr.innerHTML = '<td colspan="8" class="text-center text-muted py-4"><i class="bi bi-info-circle me-1"></i>No matching students found</td>';
+      tbody.appendChild(tr);
+    }
+  } else {
+    if (existingNoRes) existingNoRes.remove();
   }
 
-  // Event listeners for filters
-  searchInput.addEventListener('input', applyFilters);
-  if (filterDepartment) filterDepartment.addEventListener('change', applyFilters);
-  if (filterStatus) filterStatus.addEventListener('change', applyFilters);
-  
+  // Update info label
+  if (paginationInfo) {
+    if (total === 0) {
+      paginationInfo.textContent = 'No records';
+    } else {
+      paginationInfo.textContent = `Showing ${start + 1}–${Math.min(end, total)} of ${total}`;
+    }
+  }
+
+  // Build pagination buttons
+  if (!paginationControls) return;
+  paginationControls.innerHTML = '';
+
+  if (total === 0 || totalPages <= 1) {
+    return;
+  }
+
+  const maxBtns = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxBtns / 2));
+  let endPage = Math.min(totalPages, startPage + maxBtns - 1);
+  if (endPage - startPage < maxBtns - 1) {
+    startPage = Math.max(1, endPage - maxBtns + 1);
+  }
+
+  const mkLi = (label, page, disabled, active, ariaLabel) => {
+    const li = document.createElement('li');
+    li.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+    const a = document.createElement('a');
+    a.className = 'page-link';
+    a.href = '#';
+    if (ariaLabel) a.setAttribute('aria-label', ariaLabel);
+    a.innerHTML = label;
+    if (!disabled && !active) {
+      a.addEventListener('click', ev => {
+        ev.preventDefault();
+        currentPage = page;
+        renderPage();
+      });
+    } else {
+      a.addEventListener('click', ev => ev.preventDefault());
+    }
+    li.appendChild(a);
+    paginationControls.appendChild(li);
+  };
+
+  mkLi('&laquo;', 1, currentPage === 1, false, 'First page');
+  mkLi('&lsaquo;', currentPage - 1, currentPage === 1, false, 'Previous page');
+
+  for (let p = startPage; p <= endPage; p++) {
+    mkLi(p, p, false, p === currentPage, `Page ${p}`);
+  }
+
+  mkLi('&rsaquo;', currentPage + 1, currentPage === totalPages, false, 'Next page');
+  mkLi('&raquo;', totalPages, currentPage === totalPages, false, 'Last page');
+}
+
+function applyFilters() {
+  const searchTerm = (searchInput ? searchInput.value : '').toLowerCase().trim();
+  const deptFilter = filterDepartment ? filterDepartment.value.trim() : '';
+  const statusFilter = filterStatus ? filterStatus.value.trim() : '';
+
+  filteredRows = allRows.filter(row => {
+    const text = row.textContent.toLowerCase();
+    const dept = (row.getAttribute('data-dept') || '').trim();
+    const status = (row.getAttribute('data-status') || '').trim();
+
+    const matchesSearch = searchTerm === '' || text.includes(searchTerm);
+    const matchesDept = deptFilter === '' || dept.toLowerCase() === deptFilter.toLowerCase();
+    const matchesStatus = statusFilter === '' || status.toLowerCase() === statusFilter.toLowerCase();
+
+    return matchesSearch && matchesDept && matchesStatus;
+  });
+
+  if (totalCount) {
+    totalCount.textContent = String(filteredRows.length);
+  }
+  currentPage = 1;
+  renderPage();
+}
+
+// Event listeners for filters & pagination
+if (searchInput) searchInput.addEventListener('input', applyFilters);
+if (filterDepartment) filterDepartment.addEventListener('change', applyFilters);
+if (filterStatus) filterStatus.addEventListener('change', applyFilters);
+
+if (clearFilters) {
   clearFilters.addEventListener('click', function() {
-    searchInput.value = '';
-    filterDepartment.value = '';
+    if (searchInput) searchInput.value = '';
+    if (filterDepartment) filterDepartment.value = '';
     if (filterStatus) filterStatus.value = '';
     applyFilters();
   });
+}
 
-  // ...existing code... (Add form POST handler defined later)
+if (rowsPerPage) {
+  rowsPerPage.addEventListener('change', function() {
+    currentPage = 1;
+    renderPage();
+  });
+}
 
-  // Simulated RFID scan function
-  function scanRFID() {
-    const rfidInput = document.querySelector('input[name="rfid_value"]');
-    const randomRFID = Math.floor(Math.random() * 9000000000) + 1000000000;
-    rfidInput.value = randomRFID;
-    
-    // Show scan feedback
-    const scanBtn = event.target;
-    const originalText = scanBtn.innerHTML;
-    scanBtn.innerHTML = '<i class="bi bi-check-lg"></i> Scanned';
-    scanBtn.className = 'btn btn-success';
-    
-    setTimeout(() => {
-      scanBtn.innerHTML = originalText;
-      scanBtn.className = 'btn btn-outline-secondary';
-    }, 2000);
-  }
+// Simulated RFID scan helper
+function scanRFID() {
+  const rfidInput = document.querySelector('input[name="rfid_value"]');
+  if (!rfidInput) return;
+  const randomRFID = Math.floor(Math.random() * 9000000000) + 1000000000;
+  rfidInput.value = randomRFID;
+}
 
-  // Initialize count
-  applyFilters();
-</script>
-<script>
 // After adding a student, refresh the list
 document.getElementById('addStudentForm').addEventListener('reset', function(){
-  // small delay to allow modal hide animations to finish
   setTimeout(() => { loadStudents(); }, 300);
 });
-
-// helper escapeHtml for safety (simple)
-function escapeHtml(str){ if (str===null || str===undefined) return ''; return String(str).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[m]); }
 
 // Load department acronyms for filters and modal selects
 async function loadDepartmentAcronyms(){
@@ -441,12 +577,17 @@ async function loadDepartmentAcronyms(){
     if (!j.success) return;
     const rows = j.data || [];
     const acros = rows.map(r => r.acronym || r.dept_Acronym || r.dept_acronym).filter(Boolean);
-  const sel = document.getElementById('filterDepartment');
-  const modalSel = document.querySelector('#addStudentForm select[name="department"]');
-  const editModalSel = document.querySelector('#editStudentForm select[name="department"]');
-    if (sel) { sel.innerHTML = '<option value="">All Departments</option>'; acros.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; sel.appendChild(o); }); }
-  if (modalSel){ modalSel.innerHTML = '<option value="">Select Department</option>'; acros.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; modalSel.appendChild(o); }); }
-  if (editModalSel){ editModalSel.innerHTML = '<option value="">Select Department</option>'; acros.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; editModalSel.appendChild(o); }); }
+    const sel = document.getElementById('filterDepartment');
+    const modalSel = document.querySelector('#addStudentForm select[name="department"]');
+    const editModalSel = document.querySelector('#editStudentForm select[name="department"]');
+    if (sel) {
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">All Departments</option>';
+      acros.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; sel.appendChild(o); });
+      sel.value = currentVal;
+    }
+    if (modalSel){ modalSel.innerHTML = '<option value="">Select Department</option>'; acros.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; modalSel.appendChild(o); }); }
+    if (editModalSel){ editModalSel.innerHTML = '<option value="">Select Department</option>'; acros.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; editModalSel.appendChild(o); }); }
   }catch(err){ console.error('Failed to load departments', err); }
 }
 
@@ -455,29 +596,44 @@ async function loadStudents(){
   try{
     const tbody = document.getElementById('studentsTbody');
     const totalCount = document.getElementById('totalCount');
-  tbody.innerHTML = '<tr><td colspan="8">Loading...</td></tr>';
-  const res = await fetch('../api/admin_students.php?status=active');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center py-3">Loading students...</td></tr>';
+    const res = await fetch('../api/admin_students.php?status=active');
     const j = await res.json();
-    if (!j.success){ tbody.innerHTML = '<tr><td colspan="8">Error loading students</td></tr>'; return; }
+    if (!j.success){
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-3">Error loading students</td></tr>';
+      return;
+    }
     const rows = j.data || [];
-    if (!rows.length){ tbody.innerHTML = '<tr><td colspan="8">No students found</td></tr>'; totalCount.textContent = '0'; return; }
-    tbody.innerHTML = '';
-    rows.forEach((r, idx)=>{
+    if (!rows.length){
+      if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-3">No students found</td></tr>';
+      if (totalCount) totalCount.textContent = '0';
+      allRows = [];
+      filteredRows = [];
+      renderPage();
+      return;
+    }
+    if (tbody) tbody.innerHTML = '';
+    allRows = rows.map((r, idx)=>{
       const idNum = r.ID_Number ?? r.IDNumber ?? r.id ?? '';
       const name = r.Student_name ?? r.student_name ?? r.name ?? '';
       const deptA = r.departments_acronym ?? r.dept_acronym ?? r.acronym ?? '';
       const course = r.Course ?? r.course ?? '';
       const rfid = r.RFID ?? r.rfid ?? '';
       const status = r.status ?? '';
-  const tr = document.createElement('tr');
-  tr.setAttribute('data-dept', deptA);
-  tr.setAttribute('data-status', status);
-  tr.innerHTML = `<td>${idx+1}</td><td>${escapeHtml(idNum)}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(deptA)}</td><td>${escapeHtml(course)}</td><td><code>${escapeHtml(rfid)}</code></td><td><span class="badge bg-${status.toLowerCase()==='active'?'success':'secondary'}">${escapeHtml(status)}</span></td><td><button class="btn btn-sm btn-outline-primary me-1 edit-btn" data-id="${escapeHtml(idNum)}"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger archive-btn" data-id="${escapeHtml(idNum)}" data-name="${escapeHtml(name)}"><i class="bi bi-archive"></i></button></td>`;
-      tbody.appendChild(tr);
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-dept', deptA);
+      tr.setAttribute('data-status', status);
+      tr.innerHTML = `<td>${idx+1}</td><td>${escapeHtml(idNum)}</td><td>${escapeHtml(name)}</td><td>${escapeHtml(deptA)}</td><td>${escapeHtml(course)}</td><td><code>${escapeHtml(rfid)}</code></td><td><span class="badge bg-${status.toLowerCase()==='active'?'success':'secondary'}">${escapeHtml(status)}</span></td><td><button class="btn btn-sm btn-outline-primary me-1 edit-btn" data-id="${escapeHtml(idNum)}" title="Edit"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-outline-danger archive-btn" data-id="${escapeHtml(idNum)}" data-name="${escapeHtml(name)}" title="Archive"><i class="bi bi-archive"></i></button></td>`;
+      if (tbody) tbody.appendChild(tr);
+      return tr;
     });
-    allRows = Array.from(document.querySelectorAll('#studentsTable tbody tr'));
-    totalCount.textContent = String(rows.length);
-  }catch(err){ console.error(err); const tbody = document.getElementById('studentsTbody'); if (tbody) tbody.innerHTML = '<tr><td colspan="8">Error loading students</td></tr>'; }
+
+    applyFilters();
+  }catch(err){
+    console.error(err);
+    const tbody = document.getElementById('studentsTbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger py-3">Error loading students</td></tr>';
+  }
 }
 
 // initialize

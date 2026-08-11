@@ -270,6 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['archive'])) {
       </div>
     </div>
   </div>
+  <br><br><br><br>
   
   <section>
     <footer class="footer d-flex justify-content-center fixed-bottom bg-light z-0">

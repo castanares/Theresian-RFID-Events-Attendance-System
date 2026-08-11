@@ -111,17 +111,97 @@ if (!class_exists('ZipArchive')) {
 
 $addedFiles = [];  // For tar.gz: map of real path => archive path
 
-// include DB: try to use existing SQL file if present, else attempt mysqldump using env from config
+// include DB: generate a LIVE dump via mysqli so the backup is always current
 $dbIncluded = false;
-$sqlFilePath = __DIR__ . '/../stc_event_db.sql';
 if ($includeDB) {
-    if (file_exists($sqlFilePath)) {
+    // Load DB credentials from dbcon.php without executing it (avoids output/side effects)
+    $dbconfigPath = __DIR__ . '/../api/dbcon.php';
+    $dumpSqlPath  = sys_get_temp_dir() . DIRECTORY_SEPARATOR . "stc_db_live_{$timestamp}.sql";
+
+    $dumpOk = false;
+    if (file_exists($dbconfigPath)) {
+        $dbcontent = file_get_contents($dbconfigPath);
+        preg_match('/\$username\s*=\s*["\']([^"\']+)/', $dbcontent, $mU);
+        preg_match('/\$password\s*=\s*["\']([^"\'"]*)/', $dbcontent, $mP);
+        preg_match('/\$host\s*=\s*["\']([^"\']+)/',     $dbcontent, $mH);
+        preg_match('/\$dbname\s*=\s*["\']([^"\']+)/',   $dbcontent, $mD);
+        $dbUser = $mU[1] ?? 'root';
+        $dbPass = $mP[1] ?? '';
+        $dbHost = $mH[1] ?? 'localhost';
+        $dbName = $mD[1] ?? 'stc_event_db';
+
+        try {
+            $dbc = new mysqli($dbHost, $dbUser, $dbPass, $dbName);
+            if (!$dbc->connect_error) {
+                $dbc->set_charset('utf8mb4');
+                $sql  = "-- Live database backup: " . date('Y-m-d H:i:s') . "\n";
+                $sql .= "-- Database: {$dbName}\n\n";
+                $sql .= "SET NAMES utf8mb4;\n";
+                $sql .= "SET FOREIGN_KEY_CHECKS=0;\n\n";
+
+                $tablesRes = $dbc->query("SHOW TABLES");
+                while ($trow = $tablesRes->fetch_row()) {
+                    $tbl = $trow[0];
+
+                    // DDL
+                    $createRes = $dbc->query("SHOW CREATE TABLE `{$tbl}`");
+                    $createRow = $createRes->fetch_row();
+                    $sql .= "DROP TABLE IF EXISTS `{$tbl}`;\n";
+                    $sql .= $createRow[1] . ";\n\n";
+
+                    // Data
+                    $dataRes = $dbc->query("SELECT * FROM `{$tbl}`");
+                    if ($dataRes && $dataRes->num_rows > 0) {
+                        while ($dataRow = $dataRes->fetch_row()) {
+                            $escaped = array_map(function ($v) use ($dbc) {
+                                return $v === null ? 'NULL' : "'" . $dbc->real_escape_string($v) . "'";
+                            }, $dataRow);
+                            $sql .= "INSERT INTO `{$tbl}` VALUES (" . implode(', ', $escaped) . ");\n";
+                        }
+                        $sql .= "\n";
+                    }
+                }
+                $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
+                $dbc->close();
+
+                if (file_put_contents($dumpSqlPath, $sql) !== false) {
+                    $dumpOk = true;
+                    @file_put_contents($debugPath, json_encode([
+                        'time'  => date('c'),
+                        'msg'   => 'live_db_dump_ok',
+                        'db'    => $dbName,
+                        'bytes' => strlen($sql),
+                    ], JSON_PRETTY_PRINT) . "\n", FILE_APPEND | LOCK_EX);
+                }
+            }
+        } catch (Exception $e) {
+            @file_put_contents($debugPath, json_encode([
+                'time'  => date('c'),
+                'msg'   => 'live_db_dump_error',
+                'error' => $e->getMessage(),
+            ], JSON_PRETTY_PRINT) . "\n", FILE_APPEND | LOCK_EX);
+        }
+    }
+
+    if ($dumpOk) {
+        // Use fresh live dump
         if ($usesTarGz) {
-            $addedFiles[$sqlFilePath] = basename($sqlFilePath);
+            $addedFiles[$dumpSqlPath] = "stc_event_db_{$timestamp}.sql";
         } else {
-            $zip->addFile($sqlFilePath, basename($sqlFilePath));
+            $zip->addFile($dumpSqlPath, "stc_event_db_{$timestamp}.sql");
         }
         $dbIncluded = true;
+    } else {
+        // Fall back to static SQL file if live dump failed
+        $sqlFilePath = __DIR__ . '/../stc_event_db.sql';
+        if (file_exists($sqlFilePath)) {
+            if ($usesTarGz) {
+                $addedFiles[$sqlFilePath] = basename($sqlFilePath);
+            } else {
+                $zip->addFile($sqlFilePath, basename($sqlFilePath));
+            }
+            $dbIncluded = true;
+        }
     }
 }
 
@@ -185,6 +265,11 @@ if ($usesTarGz) {
     }
 } else {
     $zip->close();
+}
+
+// Clean up the temporary live SQL dump (if we generated one)
+if (!empty($dumpSqlPath) && file_exists($dumpSqlPath)) {
+    @unlink($dumpSqlPath);
 }
 
 // Stream the archive to client

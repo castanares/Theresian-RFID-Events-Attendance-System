@@ -266,9 +266,10 @@ function rfidScanner(eventId) {
 
         if (data.success) {
           window.SoundBeeper.beepSuccess();
-          this.fetchLogs();
+          await this.fetchLogs();
         } else if (data.type === 'warning') {
           window.SoundBeeper.beepWarning();
+          await this.fetchLogs();
         } else {
           window.SoundBeeper.beepError();
         }

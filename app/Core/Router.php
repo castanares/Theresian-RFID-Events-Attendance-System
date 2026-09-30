@@ -80,7 +80,7 @@ class Router {
                     die("Method {$method} not found in controller " . htmlspecialchars($controllerClass));
                 }
 
-                call_user_func_array([$controller, $method], $params);
+                call_user_func_array([$controller, $method], array_values($params));
                 return;
             }
         }

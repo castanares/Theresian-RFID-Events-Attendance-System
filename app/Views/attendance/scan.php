@@ -171,8 +171,8 @@ use App\Core\Auth;
                 <td class="py-3 px-3">
                   <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold" x-text="item.Course"></span>
                 </td>
-                <td class="py-3 px-3 font-mono text-emerald-700 font-bold" x-text="formatTime24(item.Time_in)"></td>
-                <td class="py-3 px-3 font-mono text-slate-600 font-medium" x-text="formatTime24(item.Time_out)"></td>
+                <td class="py-3 px-3 font-mono text-emerald-700 font-bold" x-text="formatTime12(item.Time_in)"></td>
+                <td class="py-3 px-3 font-mono text-slate-600 font-medium" x-text="formatTime12(item.Time_out)"></td>
               </tr>
             </template>
           </tbody>
@@ -250,13 +250,19 @@ function rfidScanner(eventId) {
       }
     },
 
-    formatTime24(dt) {
+    formatTime12(dt) {
       if (!dt || dt === '—') return '—';
-      // If datetime string like "2026-09-30 19:06:46", return time part "19:06:46"
-      if (dt.includes(' ')) {
-        return dt.split(' ')[1];
-      }
-      return dt;
+      let timeStr = dt.includes(' ') ? dt.split(' ')[1] : dt;
+      let parts = timeStr.split(':');
+      if (parts.length < 2) return dt;
+      let hours = parseInt(parts[0], 10);
+      let minutes = parts[1];
+      let seconds = parts[2] ? parts[2] : null;
+      let ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 0 becomes 12
+      let hoursStr = hours < 10 ? '0' + hours : hours;
+      return seconds ? `${hoursStr}:${minutes}:${seconds} ${ampm}` : `${hoursStr}:${minutes} ${ampm}`;
     },
 
     async handleScan() {

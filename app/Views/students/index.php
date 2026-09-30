@@ -21,36 +21,70 @@ use App\Core\Csrf;
   </div>
 
   <!-- Search & Filter Toolbar -->
-  <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+  <div class="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
     
     <!-- Status Tabs -->
     <div class="flex items-center gap-2">
-      <a href="<?= Config::BASE_URL ?>/students?status=active" 
+      <a href="<?= Config::BASE_URL ?>/students?status=active<?= !empty($currentFilter['department_id']) ? '&department_id=' . $currentFilter['department_id'] : '' ?><?= !empty($currentFilter['course']) ? '&course=' . urlencode($currentFilter['course']) : '' ?>" 
          class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition <?= ($currentFilter['status'] ?? 'active') === 'active' ? 'bg-maroon-900 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' ?>">
         Active Students
       </a>
-      <a href="<?= Config::BASE_URL ?>/students?status=archived" 
+      <a href="<?= Config::BASE_URL ?>/students?status=archived<?= !empty($currentFilter['department_id']) ? '&department_id=' . $currentFilter['department_id'] : '' ?><?= !empty($currentFilter['course']) ? '&course=' . urlencode($currentFilter['course']) : '' ?>" 
          class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition <?= ($currentFilter['status'] ?? '') === 'archived' ? 'bg-maroon-900 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' ?>">
         Archived
       </a>
     </div>
 
-    <!-- Search Form -->
-    <form action="<?= Config::BASE_URL ?>/students" method="GET" class="flex items-center gap-2 max-w-md w-full">
+    <!-- Filters & Search Form -->
+    <form action="<?= Config::BASE_URL ?>/students" method="GET" class="flex flex-wrap items-center gap-2.5 flex-1 lg:justify-end">
       <input type="hidden" name="status" value="<?= htmlspecialchars($currentFilter['status'] ?? 'active') ?>">
-      <div class="relative flex-1">
+
+      <?php if (Auth::isAdmin()): ?>
+      <!-- Department Filter -->
+      <select name="department_id" onchange="this.form.submit()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-maroon-700/20">
+        <option value="">All Departments</option>
+        <?php foreach ($departments as $d): ?>
+          <option value="<?= $d['id'] ?>" <?= ($currentFilter['department_id'] ?? '') == $d['id'] ? 'selected' : '' ?>>
+            <?= htmlspecialchars($d['dept_Acronym']) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+      <?php endif; ?>
+
+      <!-- Course Filter -->
+      <select name="course" onchange="this.form.submit()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-maroon-700/20">
+        <option value="">All Courses</option>
+        <?php foreach ($courses as $c): ?>
+          <option value="<?= htmlspecialchars($c) ?>" <?= ($currentFilter['course'] ?? '') == $c ? 'selected' : '' ?>>
+            <?= htmlspecialchars($c) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+
+      <!-- Search Input -->
+      <div class="relative min-w-[180px] sm:min-w-[220px] flex-1 max-w-xs">
         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-          <i data-lucide="search" class="w-4 h-4"></i>
+          <i data-lucide="search" class="w-3.5 h-3.5"></i>
         </div>
         <input type="text" 
                name="search" 
                value="<?= htmlspecialchars($search ?? '') ?>" 
-               placeholder="Search by name, ID, or RFID..." 
-               class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white outline-none focus:ring-2 focus:ring-maroon-700/20">
+               placeholder="Search name, ID, RFID..." 
+               class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white outline-none focus:ring-2 focus:ring-maroon-700/20">
       </div>
-      <button type="submit" class="px-4 py-2 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 transition">
-        Search
+
+      <button type="submit" class="px-3.5 py-2 bg-slate-800 text-white text-xs font-bold rounded-xl hover:bg-slate-900 transition">
+        Filter
       </button>
+
+      <?php if (!empty($search) || !empty($currentFilter['course']) || (!empty($currentFilter['department_id']) && Auth::isAdmin())): ?>
+      <a href="<?= Config::BASE_URL ?>/students?status=<?= htmlspecialchars($currentFilter['status'] ?? 'active') ?>" 
+         class="inline-flex items-center gap-1 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl transition">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        Clear
+      </a>
+      <?php endif; ?>
+
     </form>
 
   </div>

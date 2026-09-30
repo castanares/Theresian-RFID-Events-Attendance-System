@@ -23,10 +23,12 @@ class EventController extends Controller {
         $status = $_GET['status'] ?? 'active';
         $semesterId = $_GET['semester_id'] ?? null;
         $deptId = Auth::isAdmin() ? ($_GET['department_id'] ?? null) : Auth::departmentId();
+        $search = trim($_GET['search'] ?? '');
 
         $filters = ['status' => $status];
         if ($semesterId) $filters['semester_id'] = $semesterId;
-        if ($deptId !== null) $filters['department_id'] = $deptId;
+        if ($deptId !== null && $deptId !== '') $filters['department_id'] = $deptId;
+        if ($search) $filters['search'] = $search;
 
         $events = $this->eventModel->getAll($filters);
         $departments = $this->departmentModel->getAll();
@@ -37,7 +39,8 @@ class EventController extends Controller {
             'events' => $events,
             'departments' => $departments,
             'semesters' => $semesters,
-            'currentFilter' => $filters
+            'currentFilter' => $filters,
+            'search' => $search
         ]);
     }
 

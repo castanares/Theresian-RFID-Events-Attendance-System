@@ -134,21 +134,83 @@ use App\Core\Auth;
     <!-- Right Column: Live Attendees Table -->
     <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col">
       
-      <div class="flex items-center justify-between mb-4">
+      <!-- Feed Header with Count Badge -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h3 class="text-base font-bold text-slate-900 tracking-tight">Real-Time Attendee Feed</h3>
           <p class="text-xs text-slate-400">Live attendance log for this session</p>
         </div>
-        <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-          <span x-text="attendees.length"></span> Checked In
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                x-text="badgeText">
+          </span>
+        </div>
+      </div>
+
+      <!-- Filter & Search Toolbar -->
+      <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 mb-4 flex flex-col sm:flex-row sm:items-center gap-2.5">
+        
+        <!-- Search Input -->
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+            <i data-lucide="search" class="w-3.5 h-3.5"></i>
+          </div>
+          <input type="text" 
+                 x-model="searchQuery" 
+                 @input="currentPage = 1"
+                 placeholder="Search student name or ID..." 
+                 class="w-full pl-8 pr-7 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder-slate-400 outline-none focus:ring-2 focus:ring-maroon-700/20">
+          <button x-show="searchQuery" 
+                  @click="searchQuery = ''; currentPage = 1" 
+                  class="absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-600">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Filter by Course -->
+        <div class="flex items-center gap-1.5">
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap hidden md:inline">Course:</label>
+          <select x-model="selectedCourse" 
+                  @change="currentPage = 1" 
+                  class="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-maroon-700/20">
+            <option value="">All Courses</option>
+            <template x-for="c in courses()" :key="c">
+              <option :value="c" x-text="c"></option>
+            </template>
+          </select>
+        </div>
+
+        <!-- Rows Per Page Selector -->
+        <div class="flex items-center gap-1.5">
+          <label class="text-[11px] font-bold uppercase tracking-wider text-slate-500 whitespace-nowrap hidden md:inline">Show:</label>
+          <select x-model.number="perPage" 
+                  @change="currentPage = 1" 
+                  class="px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-maroon-700/20">
+            <option :value="10">10</option>
+            <option :value="25">25</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+            <option :value="0">All</option>
+          </select>
+        </div>
+
+        <!-- Clear Filter Button -->
+        <button x-show="selectedCourse || searchQuery" 
+                @click="clearFilters()" 
+                type="button" 
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-xs font-bold transition">
+          <i data-lucide="filter-x" class="w-3.5 h-3.5"></i>
+          <span>Clear</span>
+        </button>
+
       </div>
 
       <!-- Attendees Table -->
-      <div class="overflow-x-auto flex-1 max-h-[500px]">
+      <div class="overflow-x-auto flex-1 min-h-[300px] max-h-[520px]">
         <table class="w-full text-left border-collapse text-xs">
           <thead>
-            <tr class="border-b border-slate-200 bg-slate-50/75 text-slate-500 uppercase tracking-wider font-semibold">
+            <tr class="border-b border-slate-200 bg-slate-50/75 text-slate-500 uppercase tracking-wider font-semibold sticky top-0 bg-white">
+              <th class="py-3 px-3 w-10 text-center">#</th>
               <th class="py-3 px-3">Student ID</th>
               <th class="py-3 px-3">Full Name</th>
               <th class="py-3 px-3">Course</th>
@@ -157,15 +219,20 @@ use App\Core\Auth;
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
-            <template x-if="attendees.length === 0">
+            <template x-if="paginatedAttendees.length === 0">
               <tr>
-                <td colspan="5" class="py-12 text-center text-slate-400">
-                  No attendance records yet. Start scanning cards above.
+                <td colspan="6" class="py-12 text-center text-slate-400">
+                  <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center">
+                    <i data-lucide="inbox" class="w-5 h-5"></i>
+                  </div>
+                  <span x-text="attendees.length === 0 ? 'No attendance records yet. Start scanning cards.' : 'No attendees match the selected filter.'"></span>
                 </td>
               </tr>
             </template>
-            <template x-for="item in attendees" :key="item.Attendance_ID">
+            <template x-for="(item, idx) in paginatedAttendees" :key="item.Attendance_ID || (item.Student_ID + '_' + idx)">
               <tr class="hover:bg-slate-50/80 transition">
+                <td class="py-3 px-3 text-center text-slate-400 font-mono font-medium" 
+                    x-text="perPage > 0 ? ((currentPage - 1) * perPage + idx + 1) : (idx + 1)"></td>
                 <td class="py-3 px-3 font-mono font-medium text-slate-800" x-text="item.Student_ID"></td>
                 <td class="py-3 px-3 font-bold text-slate-900" x-text="item.Student_name"></td>
                 <td class="py-3 px-3">
@@ -177,6 +244,39 @@ use App\Core\Auth;
             </template>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination Controls Footer -->
+      <div x-show="filteredAttendees.length > 0 && perPage > 0" class="pt-4 mt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500">
+        <div>
+          Showing 
+          <span class="font-bold text-slate-800" x-text="(currentPage - 1) * perPage + 1"></span>
+          to 
+          <span class="font-bold text-slate-800" x-text="Math.min(currentPage * perPage, filteredAttendees.length)"></span>
+          of 
+          <span class="font-bold text-slate-800" x-text="filteredAttendees.length"></span>
+          entries
+        </div>
+
+        <div class="flex items-center gap-1 self-end sm:self-auto" x-show="totalPages > 1">
+          <button @click="setPage(currentPage - 1)" 
+                  :disabled="currentPage <= 1"
+                  type="button"
+                  class="px-2.5 py-1 rounded-lg border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+            Prev
+          </button>
+
+          <span class="px-3 py-1 font-bold text-slate-800">
+            Page <span x-text="currentPage"></span> of <span x-text="totalPages"></span>
+          </span>
+
+          <button @click="setPage(currentPage + 1)" 
+                  :disabled="currentPage >= totalPages"
+                  type="button"
+                  class="px-2.5 py-1 rounded-lg border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+            Next
+          </button>
+        </div>
       </div>
 
     </div>
@@ -223,6 +323,10 @@ function rfidScanner(eventId) {
     rfidCode: '',
     feedback: null,
     attendees: <?= json_encode($attendees ?? []) ?>,
+    searchQuery: '',
+    selectedCourse: '',
+    perPage: 25,
+    currentPage: 1,
     manualModal: false,
     manualIdNumber: '',
     manualMsg: '',
@@ -239,6 +343,13 @@ function rfidScanner(eventId) {
     },
 
     focusInput() {
+      if (this.manualModal) return;
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA')) {
+        if (active !== this.$refs.rfidInput) {
+          return; // Don't interrupt user typing in search/filter
+        }
+      }
       if (this.$refs.rfidInput) {
         this.$refs.rfidInput.focus();
       }
@@ -247,6 +358,74 @@ function rfidScanner(eventId) {
     keepFocus() {
       if (!this.manualModal) {
         setTimeout(() => this.focusInput(), 200);
+      }
+    },
+
+    courses() {
+      const set = new Set();
+      (this.attendees || []).forEach(a => {
+        if (a.Course && a.Course.trim()) {
+          set.add(a.Course.trim());
+        }
+      });
+      return Array.from(set).sort();
+    },
+
+    get filteredAttendees() {
+      let list = this.attendees || [];
+      if (this.selectedCourse) {
+        const c = this.selectedCourse.toLowerCase();
+        list = list.filter(a => (a.Course || '').toLowerCase() === c);
+      }
+      if (this.searchQuery && this.searchQuery.trim()) {
+        const q = this.searchQuery.toLowerCase().trim();
+        list = list.filter(a => 
+          (a.Student_name || '').toLowerCase().includes(q) ||
+          (a.Student_ID || '').toString().toLowerCase().includes(q) ||
+          (a.Course || '').toLowerCase().includes(q)
+        );
+      }
+      return list;
+    },
+
+    get totalPages() {
+      if (!this.perPage || this.perPage <= 0) return 1;
+      return Math.max(1, Math.ceil(this.filteredAttendees.length / this.perPage));
+    },
+
+    get paginatedAttendees() {
+      if (!this.perPage || this.perPage <= 0) {
+        return this.filteredAttendees;
+      }
+      const start = (this.currentPage - 1) * this.perPage;
+      return this.filteredAttendees.slice(start, start + this.perPage);
+    },
+
+    get badgeText() {
+      const total = (this.attendees || []).length;
+      const filtered = this.filteredAttendees.length;
+      if (this.selectedCourse && this.searchQuery) {
+        return `${filtered} in ${this.selectedCourse} matching search`;
+      }
+      if (this.selectedCourse) {
+        return `${filtered} student${filtered !== 1 ? 's' : ''} in ${this.selectedCourse}`;
+      }
+      if (this.searchQuery) {
+        return `${filtered} of ${total} matching search`;
+      }
+      return `${total} Checked In`;
+    },
+
+    clearFilters() {
+      this.selectedCourse = '';
+      this.searchQuery = '';
+      this.currentPage = 1;
+      this.focusInput();
+    },
+
+    setPage(p) {
+      if (p >= 1 && p <= this.totalPages) {
+        this.currentPage = p;
       }
     },
 

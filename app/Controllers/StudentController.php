@@ -19,19 +19,23 @@ class StudentController extends Controller {
     public function index(): void {
         $status = $_GET['status'] ?? 'active';
         $deptId = Auth::isAdmin() ? ($_GET['department_id'] ?? null) : Auth::departmentId();
+        $course = trim($_GET['course'] ?? '');
         $search = trim($_GET['search'] ?? '');
 
         $filters = ['status' => $status];
         if ($deptId) $filters['department_id'] = $deptId;
+        if ($course) $filters['course'] = $course;
         if ($search) $filters['search'] = $search;
 
         $students = $this->studentModel->getAll($filters);
         $departments = $this->departmentModel->getAll();
+        $courses = $this->studentModel->getDistinctCourses();
 
         $this->view('students.index', [
             'title' => 'Student Directory - STC Attendance',
             'students' => $students,
             'departments' => $departments,
+            'courses' => $courses,
             'currentFilter' => $filters,
             'search' => $search
         ]);

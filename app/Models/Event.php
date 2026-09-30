@@ -45,6 +45,14 @@ class Event extends Model {
             }
         }
 
+        if (!empty($filters['search'])) {
+            $sql .= " AND (e.event_name LIKE ? OR d.dept_Acronym LIKE ? OR d.Dept_name LIKE ?)";
+            $term = '%' . $filters['search'] . '%';
+            $params[] = $term;
+            $params[] = $term;
+            $params[] = $term;
+        }
+
         $sql .= " ORDER BY e.date DESC, e.TimeIn_start DESC";
         return $this->query($sql, $params);
     }

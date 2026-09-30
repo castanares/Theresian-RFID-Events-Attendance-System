@@ -39,6 +39,11 @@ class Student extends Model {
             $params[] = $filters['department_id'];
         }
 
+        if (!empty($filters['course'])) {
+            $sql .= " AND s.Course = ?";
+            $params[] = $filters['course'];
+        }
+
         if (!empty($filters['search'])) {
             $sql .= " AND (s.Student_name LIKE ? OR s.ID_Number LIKE ? OR s.RFID LIKE ? OR s.Course LIKE ?)";
             $term = '%' . $filters['search'] . '%';
@@ -50,6 +55,11 @@ class Student extends Model {
 
         $sql .= " ORDER BY s.Student_name ASC";
         return $this->query($sql, $params);
+    }
+
+    public function getDistinctCourses(): array {
+        $rows = $this->query("SELECT DISTINCT Course FROM students WHERE Course IS NOT NULL AND Course != '' ORDER BY Course ASC");
+        return array_column($rows, 'Course');
     }
 
     public function create(array $data): int {

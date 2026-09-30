@@ -171,8 +171,8 @@ use App\Core\Auth;
                 <td class="py-3 px-3">
                   <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold" x-text="item.Course"></span>
                 </td>
-                <td class="py-3 px-3 font-mono text-emerald-700 font-medium" x-text="item.Time_in"></td>
-                <td class="py-3 px-3 font-mono text-slate-500" x-text="item.Time_out || '—'"></td>
+                <td class="py-3 px-3 font-mono text-emerald-700 font-bold" x-text="formatTime24(item.Time_in)"></td>
+                <td class="py-3 px-3 font-mono text-slate-600 font-medium" x-text="formatTime24(item.Time_out)"></td>
               </tr>
             </template>
           </tbody>
@@ -248,6 +248,15 @@ function rfidScanner(eventId) {
       if (!this.manualModal) {
         setTimeout(() => this.focusInput(), 200);
       }
+    },
+
+    formatTime24(dt) {
+      if (!dt || dt === '—') return '—';
+      // If datetime string like "2026-09-30 19:06:46", return time part "19:06:46"
+      if (dt.includes(' ')) {
+        return dt.split(' ')[1];
+      }
+      return dt;
     },
 
     async handleScan() {

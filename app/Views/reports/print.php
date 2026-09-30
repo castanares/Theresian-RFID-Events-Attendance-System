@@ -120,8 +120,8 @@ use App\Config\Config;
               <td><?= htmlspecialchars($a['Student_ID']) ?></td>
               <td><strong><?= htmlspecialchars($a['Student_name']) ?></strong></td>
               <td><?= htmlspecialchars($a['Course']) ?></td>
-              <td style="color: #166534;"><?= htmlspecialchars($a['Time_in']) ?></td>
-              <td><?= htmlspecialchars($a['Time_out'] ?: '—') ?></td>
+              <td style="color: #166534; font-family: monospace; font-weight: bold;"><?= !empty($a['Time_in']) ? date('H:i:s', strtotime($a['Time_in'])) : '—' ?></td>
+              <td style="font-family: monospace;"><?= !empty($a['Time_out']) ? date('H:i:s', strtotime($a['Time_out'])) : '—' ?></td>
             </tr>
           <?php endforeach; ?>
         <?php endif; ?>

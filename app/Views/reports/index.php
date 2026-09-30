@@ -109,8 +109,8 @@ use App\Core\Auth;
                   <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold"><?= htmlspecialchars($a['Course']) ?></span>
                 </td>
                 <td class="py-3.5 px-4 text-slate-600 font-medium"><?= htmlspecialchars($a['department_name'] ?? '—') ?></td>
-                <td class="py-3.5 px-4 font-mono font-medium text-emerald-700"><?= htmlspecialchars($a['Time_in']) ?></td>
-                <td class="py-3.5 px-4 font-mono text-slate-500"><?= htmlspecialchars($a['Time_out'] ?: '—') ?></td>
+                <td class="py-3.5 px-4 font-mono font-bold text-emerald-700"><?= !empty($a['Time_in']) ? date('H:i:s', strtotime($a['Time_in'])) : '—' ?></td>
+                <td class="py-3.5 px-4 font-mono font-medium text-slate-600"><?= !empty($a['Time_out']) ? date('H:i:s', strtotime($a['Time_out'])) : '—' ?></td>
               </tr>
             <?php endforeach; ?>
           <?php endif; ?>

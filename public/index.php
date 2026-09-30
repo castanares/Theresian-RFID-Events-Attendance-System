@@ -34,6 +34,10 @@ use App\Controllers\StudentController;
 use App\Controllers\DepartmentController;
 use App\Controllers\ReportController;
 use App\Controllers\ProfileController;
+use App\Controllers\UserController;
+use App\Controllers\ArchiveController;
+use App\Controllers\BackupController;
+use App\Controllers\SemesterController;
 
 // Initialize secure session
 Session::start();
@@ -52,7 +56,7 @@ $router->post('/api/verify-otp',  [AuthController::class, 'verifyOtp']);
 $router->get('/reset-password',   [AuthController::class, 'showResetPassword']);
 $router->post('/reset-password',  [AuthController::class, 'resetPassword']);
 
-// ── Authenticated App Routes ───────────────────────────────────
+// ── Authenticated App Routes (For All Logged-in Users / Departments) ───────────
 $router->get('/dashboard',        [DashboardController::class, 'index'], [AuthMiddleware::class]);
 
 // Live RFID Scanner & Scan APIs
@@ -87,12 +91,35 @@ $router->post('/profile/update',  [ProfileController::class, 'update'], [AuthMid
 $router->post('/profile/change-password', [ProfileController::class, 'changePassword'], [AuthMiddleware::class]);
 $router->post('/profile/upload-photo', [ProfileController::class, 'uploadPhoto'], [AuthMiddleware::class]);
 
-// ── Admin-Only Routes ──────────────────────────────────────────
-$router->get('/departments',      [DepartmentController::class, 'index'], [AuthMiddleware::class, AdminMiddleware::class]);
-$router->post('/departments/store', [DepartmentController::class, 'store'], [AuthMiddleware::class, AdminMiddleware::class]);
-$router->post('/departments/update/{id}', [DepartmentController::class, 'update'], [AuthMiddleware::class, AdminMiddleware::class]);
-$router->post('/departments/archive/{id}', [DepartmentController::class, 'archive'], [AuthMiddleware::class, AdminMiddleware::class]);
-$router->post('/departments/restore/{id}', [DepartmentController::class, 'restore'], [AuthMiddleware::class, AdminMiddleware::class]);
+// ── Admin-Only Routes (Protected by AdminMiddleware) ───────────
+// 1. User Accounts Control Panel
+$router->get('/admin/users',                    [UserController::class, 'index'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/users/store',             [UserController::class, 'store'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/users/update/{id}',       [UserController::class, 'update'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/users/reset-password/{id}', [UserController::class, 'resetPassword'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/users/toggle-status/{id}', [UserController::class, 'toggleStatus'], [AuthMiddleware::class, AdminMiddleware::class]);
+
+// 2. Academic Departments Management
+$router->get('/departments',                    [DepartmentController::class, 'index'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/departments/store',             [DepartmentController::class, 'store'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/departments/update/{id}',       [DepartmentController::class, 'update'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/departments/archive/{id}',      [DepartmentController::class, 'archive'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/departments/restore/{id}',      [DepartmentController::class, 'restore'], [AuthMiddleware::class, AdminMiddleware::class]);
+
+// 3. Unified Archive Center
+$router->get('/admin/archived',                 [ArchiveController::class, 'index'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/archived/permanent-delete/{type}/{id}', [ArchiveController::class, 'permanentDelete'], [AuthMiddleware::class, AdminMiddleware::class]);
+
+// 4. Semesters & Academic Calendar
+$router->get('/admin/semesters',                [SemesterController::class, 'index'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/semesters/store',         [SemesterController::class, 'store'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/semesters/update/{id}',   [SemesterController::class, 'update'], [AuthMiddleware::class, AdminMiddleware::class]);
+
+// 5. Database Backup & Snapshots
+$router->get('/admin/backup',                   [BackupController::class, 'index'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/backup/create',           [BackupController::class, 'create'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->get('/admin/backup/download/{filename}', [BackupController::class, 'download'], [AuthMiddleware::class, AdminMiddleware::class]);
+$router->post('/admin/backup/delete/{filename}', [BackupController::class, 'delete'], [AuthMiddleware::class, AdminMiddleware::class]);
 
 // Dispatch incoming request
 $router->dispatch();

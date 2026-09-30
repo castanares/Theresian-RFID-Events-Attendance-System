@@ -4,14 +4,23 @@ use App\Core\Auth;
 ?>
 <header class="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-xs px-4 sm:px-6 py-3 flex items-center justify-between">
   
-  <!-- Left Side: Mobile Hamburger & Page Title -->
+  <!-- Left Side: Toggle Sidebar & Page Title -->
   <div class="flex items-center gap-3">
-    <!-- Hamburger Button (Mobile) -->
+    
+    <!-- Mobile Hamburger Toggle -->
     <button @click="sidebarOpen = true" 
             type="button" 
             class="p-2 -ml-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg lg:hidden transition"
-            aria-label="Open sidebar">
+            aria-label="Open mobile menu">
       <i data-lucide="menu" class="w-6 h-6"></i>
+    </button>
+
+    <!-- Desktop Collapse Button -->
+    <button @click="toggleSidebar()" 
+            type="button" 
+            class="hidden lg:flex p-2 -ml-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition"
+            title="Collapse / Expand Sidebar">
+      <i data-lucide="panel-left" class="w-5 h-5"></i>
     </button>
 
     <div>
@@ -22,7 +31,7 @@ use App\Core\Auth;
     </div>
   </div>
 
-  <!-- Right Side: Clock & Fast Actions -->
+  <!-- Right Side: Clock, Scanner Trigger, Profile -->
   <div class="flex items-center gap-3">
     
     <!-- Live Clock -->

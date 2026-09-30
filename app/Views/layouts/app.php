@@ -46,22 +46,30 @@ use App\Core\Session;
 
   <style>
     [x-cloak] { display: none !important; }
-    /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
   </style>
 </head>
-<body class="h-full flex overflow-hidden text-slate-800 font-sans" x-data="{ sidebarOpen: false }">
+<body class="h-full flex overflow-hidden text-slate-800 font-sans" 
+      x-data="{ 
+        sidebarOpen: false,
+        isCollapsed: localStorage.getItem('sidebar_collapsed') === 'true',
+        toggleSidebar() {
+          this.isCollapsed = !this.isCollapsed;
+          localStorage.setItem('sidebar_collapsed', this.isCollapsed);
+          this.$nextTick(() => lucide.createIcons());
+        }
+      }">
 
-  <!-- Desktop & Mobile Sidebar -->
+  <!-- Desktop & Mobile Collapsible Sidebar -->
   <?php require dirname(__DIR__) . '/components/sidebar.php'; ?>
 
-  <!-- Main Content Wrapper -->
+  <!-- Main Content Area -->
   <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50">
     
-    <!-- Top Navbar -->
+    <!-- Top Navbar with Collapse Button -->
     <?php require dirname(__DIR__) . '/components/navbar.php'; ?>
 
     <!-- Flash Alerts -->
@@ -75,12 +83,10 @@ use App\Core\Session;
   </div>
 
   <script>
-    // Initialize Lucide icons
     document.addEventListener('DOMContentLoaded', () => {
       lucide.createIcons();
     });
 
-    // Sound Beep Generator (Web Audio API)
     window.SoundBeeper = {
       ctx: null,
       init() {
@@ -93,7 +99,7 @@ use App\Core\Session;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, this.ctx.currentTime); // A5
+        osc.frequency.setValueAtTime(880, this.ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(1760, this.ctx.currentTime + 0.15);
         gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
@@ -107,7 +113,7 @@ use App\Core\Session;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(330, this.ctx.currentTime); // E4
+        osc.frequency.setValueAtTime(330, this.ctx.currentTime);
         gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
         osc.connect(gain);
@@ -120,7 +126,7 @@ use App\Core\Session;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         osc.type = 'square';
-        osc.frequency.setValueAtTime(220, this.ctx.currentTime); // A3
+        osc.frequency.setValueAtTime(220, this.ctx.currentTime);
         gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
         osc.connect(gain);
